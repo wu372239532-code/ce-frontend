@@ -1,118 +1,92 @@
 <template>
-  <div class="app-container">
-    <header class="app-header">
-      <h1>资源查重系统</h1>
-      <p class="subtitle">运营数据查重对比工具</p>
-    </header>
-
-    <main class="app-main">
-      <DataImport 
-        @import-success="handleImportSuccess" 
-        @import-loading="handleImportLoading"
+  <div id="app" style="padding: 20px; font-family: Arial, sans-serif;">
+    <h1>资源查重系统 (Excel版)</h1>
+    
+    <div style="margin-bottom: 20px; padding: 20px; border: 2px dashed #409eff; border-radius: 10px; background-color: #f5f7fa;">
+      <h3 style="margin-top: 0;">第一步：上传 Excel 文件</h3>
+      <input 
+        type="file" 
+        @change="handleFileUpload" 
+        accept=".xlsx, .xls"
+        style="margin-bottom: 10px;"
       />
-      
-      <!-- 加载状态提示 -->
-      <div v-if="loading" class="loading-state">
-        <div class="loading-spinner"></div>
-        <p>正在核对资源...</p>
-      </div>
-      
-      <!-- 结果展示 -->
-      <AuditTable v-else-if="results.length > 0" :results="results" />
-      
-      <!-- 空状态 -->
-      <div v-else class="empty-state">
-        <p>暂无查重结果，请先导入运营数据</p>
-      </div>
-    </main>
+      <p style="font-size: 13px; color: #666;">
+        温馨提示：系统会自动读取表格的 **第一列（资源名称）** 和 **第二列（频道名称）**。
+      </p>
+    </div>
+
+    <hr />
+
+    <div v-if="tableData.length > 0">
+      <h3>第二步：查看查重结果</h3>
+      <table border="1" style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+          <tr style="background-color: #f2f2f2;">
+            <th style="padding: 10px;">资源名称 (A列)</th>
+            <th style="padding: 10px;">对应频道 (B列)</th>
+            <th style="padding: 10px;">审核状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(item, index) in tableData" :key="index">
+            <td style="padding: 10px;">{{ item.name }}</td>
+            <td style="padding: 10px;">{{ item.channel }}</td>
+            <td style="padding: 10px; font-weight: bold;" :style="{ color: item.is_duplicate ? 'red' : 'green' }">
+              {{ item.status }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div v-else style="color: #999; margin-top: 40px; text-align: center;">
+      <p>暂无数据，请先上传 Excel 文件进行查重</p>
+    </div>
   </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
-import DataImport from './components/DataImport.vue'
-import AuditTable from './components/AuditTable.vue'
+<script>
+import axios from 'axios';
 
-const results = ref([])
-const loading = ref(false)
+export default {
+  data() {
+    return {
+      tableData: [],
+      // apidemp.zeabur.app
+      BASE_URL: 'https://apidemo.zeabur.app'
+    };
+  },
+  methods: {
+    async handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
 
-const handleImportSuccess = (data) => {
-  results.value = data
-  loading.value = false
-}
+      // 构造文件上传数据
+      const formData = new FormData();
+      formData.append('file', file);
 
-const handleImportLoading = (isLoading) => {
-  loading.value = isLoading
-}
+      try {
+        // 调用后端新的上传接口
+        const response = await axios.post(`${this.BASE_URL}/api/audit/upload`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+
+        // 将后端返回的结果更新到表格中
+        this.tableData = response.data;
+        console.log("查重完成！", response.data);
+      } catch (error) {
+        console.error("上传失败:", error);
+        alert("连接服务器失败，请检查后端是否正常运行或域名是否填错。");
+      }
+    }
+  }
+};
 </script>
 
 <style scoped>
-.app-container {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-}
-
-.app-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 40px;
-  text-align: center;
-}
-
-.app-header h1 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-
-.subtitle {
-  font-size: 1.1rem;
-  opacity: 0.9;
-}
-
-.app-main {
-  padding: 40px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: #999;
-  font-size: 1.1rem;
-}
-
-.loading-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: #667eea;
-  font-size: 1.1rem;
-}
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  margin: 0 auto 20px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #667eea;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-@media (max-width: 768px) {
-  .app-header h1 {
-    font-size: 2rem;
-  }
-  
-  .app-main {
-    padding: 20px;
-  }
+table tr:hover {
+  background-color: #fafafa;
 }
 </style>
-
